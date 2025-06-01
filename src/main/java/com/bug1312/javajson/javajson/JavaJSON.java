@@ -1,28 +1,27 @@
 package com.bug1312.javajson.javajson;
 
-import net.minecraft.client.renderer.model.Model;
-import net.minecraft.util.ResourceLocation;
-import net.minecraftforge.api.distmarker.Dist;
-import net.minecraftforge.fml.DistExecutor;
+import net.minecraft.client.model.Model;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
 public class JavaJSON {
-
-	public static void initialize() {
-		DistExecutor.safeRunWhenOn(Dist.CLIENT, () -> JavaJSONCache::init);
+	@SubscribeEvent
+	public static void onClientSetup(FMLClientSetupEvent event) {
+		event.enqueueWork(JavaJSONCache::init);
 	}
-	
+
 	public static JavaJSONParsed getParsedJavaJSON(IUseJavaJSON part) {
 		return JavaJSONParser.loadModel(JavaJSONCache.reloadableModels.get(part));
 	}
-	
+
 	public static Model getModel(IUseJavaJSON part) {
-		if(getParsedJavaJSON(part) == null) return null;
+		if (getParsedJavaJSON(part) == null) return null;
 		return getParsedJavaJSON(part).getModelInfo().getModel();
 	}
-	
+
 	public static ResourceLocation getTexture(IUseJavaJSON part) {
-		if(getParsedJavaJSON(part) == null) return null;
+		if (getParsedJavaJSON(part) == null) return null;
 		return getParsedJavaJSON(part).getModelInfo().getTexture();
 	}
-	
 }

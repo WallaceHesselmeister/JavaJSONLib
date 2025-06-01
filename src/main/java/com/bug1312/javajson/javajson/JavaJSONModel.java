@@ -1,148 +1,157 @@
 package com.bug1312.javajson.javajson;
 
-import java.awt.Color;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.model.Model;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.awt.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.bug1312.javajson.javajson.JavaJSONFile.FontData;
-import com.mojang.blaze3d.matrix.MatrixStack;
-import com.mojang.blaze3d.vertex.IVertexBuilder;
-
-import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.renderer.IRenderTypeBuffer;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.model.Model;
-import net.minecraft.client.renderer.texture.NativeImage;
-import net.minecraft.util.math.vector.Quaternion;
-import net.minecraft.util.math.vector.Vector3f;
+import static com.mojang.math.Axis.*;
 
 public class JavaJSONModel extends Model {
+
+	private static final Logger LOGGER = LogManager.getLogger();
 
 	public JavaJSONParsed model;
 	public List<JavaJSONRenderer> renderList = new ArrayList<>();
 	public Map<String, JavaJSONRenderer> partsList = new HashMap<>();
-	public Map<String, List<FontData>> fontData = new HashMap<>();
+	public Map<String, List<JavaJSONFile.FontData>> fontData = new HashMap<>();
 	public float modelScale;
-	public List<FontData> rootfontData = new ArrayList<>();
-	
-	public JavaJSONModel(int texWidth, int texHeight, float scale, List<FontData> fontData) {
+	public List<JavaJSONFile.FontData> rootfontData = new ArrayList<>();
+
+	public JavaJSONModel(int texWidth, int texHeight, float scale, List<JavaJSONFile.FontData> fontData) {
 		super(JavaJSONRenderer::transparentRenderType);
-		this.texHeight = texHeight;
-		this.texWidth = texWidth;
+//		this.texWidth = texWidth;
+//		this.texHeight = texHeight;
 		this.modelScale = scale;
-		this.rootfontData = fontData;
+		this.rootfontData = fontData != null ? fontData : new ArrayList<>();
+		LOGGER.debug("Created JavaJSONModel: texWidth={}, texHeight={}, scale={}", texWidth, texHeight, scale);
 	}
-	
-	public JavaJSONModel(int texWidth, int texHeight, float scale) { this(texWidth, texHeight, scale, null); }
-	public JavaJSONModel() { this(0, 0, 1, null); }
-		
+
+	public JavaJSONModel(int texWidth, int texHeight, float scale) {
+		this(texWidth, texHeight, scale, null);
+	}
+
+	public JavaJSONModel() {
+		this(16, 16, 1, null);
+	}
+
 	public JavaJSONRenderer getPart(String groupName) {
-		return (partsList.containsKey(groupName)) ? partsList.get(groupName) : JavaJSONParser.NULL_PART;
+		JavaJSONRenderer part = partsList.getOrDefault(groupName, JavaJSONParser.NULL_PART);
+		LOGGER.debug("Retrieved part for group: {}, part: {}", groupName, part);
+		return part;
 	}
 
 	@Override
-	public void renderToBuffer(MatrixStack matrixStack, IVertexBuilder buffer, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
-		IRenderTypeBuffer bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
+	public void renderToBuffer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
+		MultiBufferSource bufferSource = Minecraft.getInstance().renderBuffers().bufferSource();
 		RenderType renderType;
-		
-		if (model != null && alpha > 0 ) {
+
+		if (model != null && alpha > 0) {
 			// Alpha Overlay & Map
 			if (alpha < 1) {
 				boolean alphaMapExists = model.getModelInfo().getAlphaMap() != null;
-				
-				renderType = JavaJSONRenderer.transparentRenderType(JavaJSONRenderer.generateAlphaOverlay(alphaMapExists ? model.getModelInfo().getAlphaMap() : model.getModelInfo().getTexture()));
-				renderLayer(matrixStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, 1);
-				
+				renderType = JavaJSONRenderer.transparentRenderType(alphaMapExists ? model.getModelInfo().getAlphaMap() : model.getModelInfo().getTexture());
+				renderLayer(poseStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, 1);
+
 				if (alphaMapExists) {
 					renderType = JavaJSONRenderer.transparentRenderType(model.getModelInfo().getAlphaMap());
-					renderLayer(matrixStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, alpha);
+					renderLayer(poseStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, alpha);
 				}
 			}
-			
+
 			// Normal Textures
 			renderType = JavaJSONRenderer.transparentRenderType(model.getModelInfo().getTexture());
-			renderLayer(matrixStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, alpha);
-			
+			renderLayer(poseStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, alpha);
+
 			// Light Map
-			if(model.getModelInfo().getLightMap() != null) {
+			if (model.getModelInfo().getLightMap() != null) {
 				renderType = JavaJSONRenderer.lightMapRenderType(model.getModelInfo().getLightMap());
-				renderLayer(matrixStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, alpha);
+				renderLayer(poseStack, bufferSource.getBuffer(renderType), packedLight, packedOverlay, red, green, blue, alpha);
 			}
-						
+
 			// Font Data
-			if (rootfontData.size() > 0) {
-				for (FontData fontData : rootfontData) {
-					renderFont(matrixStack, null, fontData, fontData.getColor().getRed() / 255 * red, fontData.getColor().getGreen() / 255 * green, fontData.getColor().getBlue() / 255 * blue, alpha, packedLight);
+			if (!rootfontData.isEmpty()) {
+				for (JavaJSONFile.FontData fontData : rootfontData) {
+					renderFont(poseStack, null, fontData, fontData.getColor().getRed() / 255.0f * red, fontData.getColor().getGreen() / 255.0f * green, fontData.getColor().getBlue() / 255.0f * blue, alpha, packedLight);
 				}
-			}	
-			
-			if (fontData.size() > 0) {
-				for (Map.Entry<String, List<FontData>> entry : fontData.entrySet()) {
-					for (FontData fontData : entry.getValue()) {
-						renderFont(matrixStack, entry.getKey(), fontData, fontData.getColor().getRed() / 255 * red, fontData.getColor().getGreen() / 255 * green, fontData.getColor().getBlue() / 255 * blue, alpha, packedLight);
+			}
+
+			if (!fontData.isEmpty()) {
+				for (Map.Entry<String, List<JavaJSONFile.FontData>> entry : fontData.entrySet()) {
+					for (JavaJSONFile.FontData fontData : entry.getValue()) {
+						renderFont(poseStack, entry.getKey(), fontData, fontData.getColor().getRed() / 255.0f * red, fontData.getColor().getGreen() / 255.0f * green, fontData.getColor().getBlue() / 255.0f * blue, alpha, packedLight);
 					}
 				}
 			}
+		} else {
+			LOGGER.warn("Skipping render: model is null or alpha <= 0");
 		}
 	}
-	
-	public void renderLayer(MatrixStack matrixStack, IVertexBuilder buffer, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
-		matrixStack.pushPose();
-		
-		matrixStack.translate(0.5D, 0.0D, 0.5D);
-		matrixStack.mulPose(new Quaternion(0, 0, 180, true));
-		matrixStack.scale(modelScale, modelScale, modelScale);
-		matrixStack.translate(0.0D, -1.5D, 0.0D);
-			
-		for (JavaJSONRenderer renderer : renderList) renderer.render(matrixStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
-		
-		matrixStack.popPose();
+
+	public void renderLayer(PoseStack poseStack, VertexConsumer buffer, int packedLight, int packedOverlay, float red, float green, float blue, float alpha) {
+		poseStack.pushPose();
+		// Apply scale only, let group pivots handle positioning
+		poseStack.scale(modelScale, modelScale, modelScale);
+
+		for (JavaJSONRenderer renderer : renderList) {
+			renderer.render(poseStack, buffer, packedLight, packedOverlay, red, green, blue, alpha);
+		}
+
+		poseStack.popPose();
 	}
-	
-	public void renderFont(MatrixStack matrixStack, String _parent, FontData fontData, float red, float green, float blue, float alpha, int packedLight) {
+
+	public void renderFont(PoseStack poseStack, String _parent, JavaJSONFile.FontData fontData, float red, float green, float blue, float alpha, int packedLight) {
 		Minecraft mc = Minecraft.getInstance();
-		FontRenderer font = mc.font;
-		
+		Font font = mc.font;
 		JavaJSONRenderer parent = model.getPart(_parent);
-		
-		matrixStack.pushPose();
+		LOGGER.debug("Rendering font for group: {}, text: {}", _parent, fontData.value);
 
-		matrixStack.translate(0.5D, 0.0D, 0.5D);
-		matrixStack.translate(-parent.x / 16D, 1.5D - parent.y / 16D, parent.z / 16D);
+		poseStack.pushPose();
 
-		matrixStack.mulPose(Vector3f.ZP.rotation(parent.zRot));
-		matrixStack.mulPose(Vector3f.YN.rotation(parent.yRot));
-		matrixStack.mulPose(Vector3f.XN.rotation(parent.xRot));
+		poseStack.translate(0.5, 0.0, 0.5);
+		poseStack.translate(-parent.x / 16.0, 1.5 - parent.y / 16.0, parent.z / 16.0);
 
-		matrixStack.translate(fontData.origin[0] / 16D, fontData.origin[1] / 16D, fontData.origin[2] / 16D);			
-		
-		matrixStack.mulPose(Vector3f.ZP.rotationDegrees(fontData.rotation[2] + 180));					
-		matrixStack.mulPose(Vector3f.YN.rotationDegrees(fontData.rotation[1]));
-		matrixStack.mulPose(Vector3f.XN.rotationDegrees(fontData.rotation[0]));
-		
-		float scale = fontData.scale * modelScale / 100F;
-		matrixStack.scale(scale, scale, scale);
-		
-		float adjustmentX = fontData.centered[0] ? -font.width(fontData.value) / 2 : 0;
-		float adjustmentY = fontData.centered[1] ? (1 / 32F) * (fontData.scale * modelScale) : 0;
+		poseStack.mulPose(ZP.rotationDegrees(parent.zRot));
+		poseStack.mulPose(YP.rotationDegrees(-parent.yRot));
+		poseStack.mulPose(XP.rotationDegrees(-parent.xRot));
+
+		poseStack.translate(fontData.origin[0] / 16.0, fontData.origin[1] / 16.0, fontData.origin[2] / 16.0);
+
+		poseStack.mulPose(ZP.rotationDegrees((float) Math.toRadians(fontData.rotation[2] + 180)));
+		poseStack.mulPose(YP.rotationDegrees((float) Math.toRadians(-fontData.rotation[1])));
+		poseStack.mulPose(XP.rotationDegrees((float) Math.toRadians(-fontData.rotation[0])));
+
+		float scale = fontData.scale * modelScale / 100.0f;
+		poseStack.scale(scale, scale, scale);
+
+		float adjustmentX = fontData.centered[0] ? -font.width(fontData.value) / 2.0f : 0;
+		float adjustmentY = fontData.centered[1] ? (1.0f / 32.0f) * (fontData.scale * modelScale) : 0;
 
 		if (fontData.glow) {
-			font.draw(matrixStack, fontData.value, adjustmentX, adjustmentY, new Color(red, green, blue, alpha).hashCode());	
+//			font.draw(poseStack, fontData.value, adjustmentX, adjustmentY, new Color(red, green, blue, alpha).getRGB());
+			LOGGER.debug("Rendered glowing font: {}, color: {}", fontData.value, new Color(red, green, blue, alpha).getRGB());
 		} else {
-			int color = new Color(red, green, blue, alpha).hashCode();
-			int realRed = (int) (NativeImage.getR(color) * 0.7D);
-			int realGreen = (int) (NativeImage.getG(color) * 0.7D);
-			int realBlue = (int) (NativeImage.getB(color) * 0.7D);
-			int realColor = NativeImage.combine(0, realBlue, realGreen, realRed);
+			int color = new Color(red, green, blue, alpha).getRGB();
+			int realRed = (int) (((color >> 16) & 0xFF) * 0.7);
+			int realGreen = (int) (((color >> 8) & 0xFF) * 0.7);
+			int realBlue = (int) ((color & 0xFF) * 0.7);
+			int realColor = (0xFF << 24) | (realRed << 16) | (realGreen << 8) | realBlue;
 
-			font.drawInBatch(fontData.value, adjustmentX, adjustmentY, realColor, false, matrixStack.last().pose(), Minecraft.getInstance().renderBuffers().bufferSource(), false, 0, packedLight);	
+			font.drawInBatch(fontData.value, adjustmentX, adjustmentY, realColor, false, poseStack.last().pose(), Minecraft.getInstance().renderBuffers().bufferSource(), Font.DisplayMode.NORMAL, 0, packedLight);
+			LOGGER.debug("Rendered font: {}, color: {}", fontData.value, realColor);
 		}
-				
-		matrixStack.popPose();
-		
+
+		poseStack.popPose();
 	}
-	
 }

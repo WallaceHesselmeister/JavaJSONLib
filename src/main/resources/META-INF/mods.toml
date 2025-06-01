@@ -13,13 +13,13 @@ description='''JavaJSON is a custom model format and renderer.'''
 [[dependencies.javajson]]
     modId="forge"
     mandatory=true
-    versionRange="[30,)"
+    versionRange="[47,)"
     ordering="NONE"
     side="BOTH"
 
 [[dependencies.javajson]]
     modId="minecraft"
     mandatory=true
-    versionRange="[1.16.5]"
+    versionRange="[1.20.1]"
     ordering="NONE"
     side="BOTH"

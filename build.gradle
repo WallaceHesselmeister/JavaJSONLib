@@ -4,7 +4,7 @@ buildscript {
 		mavenCentral()
 	}
 	dependencies {
-		classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '5.1.+', changing: true
+		classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '6.0.+', changing: true
 		classpath 'org.spongepowered:mixingradle:0.7.+'
 	}
 }
@@ -17,7 +17,7 @@ version = '0.0.0'
 group = 'com.bug1312.javajson'
 archivesBaseName = 'javajson'
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(8)
+java.toolchain.languageVersion = JavaLanguageVersion.of(17)
 
 println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
 minecraft {
@@ -57,7 +57,7 @@ jar {
 			"Specification-Title": "javajson",
 			"Specification-Vendor": "bug1312",
 			"Specification-Version": "${version}",
-			"Implementation-Title": project.jar.baseName,
+			"Implementation-Title": archivesBaseName,
 			"Implementation-Version": project.jar.archiveVersion,
 			"Implementation-Vendor" : "bug1312",
 			"Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
